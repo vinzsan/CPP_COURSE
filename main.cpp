@@ -18,6 +18,26 @@
 // Initialized mutex lock
 std::mutex mtx;
 
+class set_terminal{
+    private:
+        termios old_s,new_s;
+    public:
+        set_terminal(){
+            tcgetattr(STDIN_FILENO,&old_s);
+            std::cout << "[INFO] : get terminal mode" << std::endl;
+        }
+        void tty(){
+            new_s = old_s;
+            new_s.c_lflag &= ~(ICANON | ECHO);
+            tcsetattr(STDIN_FILENO,TCSANOW,&new_s);
+            std::cout << "[INFO] : set tty terminal mode" << std::endl;
+        }
+        void cli(){
+            tcsetattr(STDIN_FILENO,TCSANOW,&old_s);
+            std::cout << "[INFO] : set cli mode terminal mode" << std::endl;
+        }
+};
+
 // class SET_TERM{
 //     private:
 //         termios oldt,newt;
@@ -73,11 +93,8 @@ int main(){
         std::cerr << "[INFO] : Error bind server" << std::endl;
         return -1;
     }
-    termios oldt,newt;
-    tcgetattr(STDIN_FILENO,&oldt);
-    newt = oldt;
-    newt.c_lflag &= ~(ICANON | ECHO);
-    tcsetattr(STDIN_FILENO,TCSANOW,&newt);
+    set_terminal term;
+    term.tty();
     pollfd fds[2];
     fds[0].fd = sockfd;
     fds[0].events = POLLIN;
@@ -101,13 +118,15 @@ int main(){
                 //mtx.lock();
                 char c = getchar();
                 if(c == 'q'){
+                    std::cout << "[INFO] : exiting server signal caught" << std::endl;
                     counter = false;
                 }
             }
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
-    tcsetattr(STDIN_FILENO,TCSANOW,&oldt);
+    term.cli();
+    //tcsetattr(STDIN_FILENO,TCSANOW,&oldt);
     close(sockfd);
     return 0;
 }
